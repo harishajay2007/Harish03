@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Career360 — India's AI Career Operating System | SIH25094</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0A1628; font-family: system-ui, -apple-system, sans-serif; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #0A1628; }
+  ::-webkit-scrollbar-thumb { background: #1B3A6B; border-radius: 3px; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: translateX(0); } }
+  .animate-fade { animation: fadeIn 0.4s ease forwards; }
+  .animate-slide { animation: slideIn 0.3s ease forwards; }
+  input::placeholder, textarea::placeholder { color: #6B7C99; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+/* ════════════════════════════════════════════════════════════════════════
+   PALETTE
+   ════════════════════════════════════════════════════════════════════════ */
+const C = {
+  navy:"#0A1628", blue:"#1B3A6B", cyan:"#00C8E0", gold:"#FFB800",
+  teal:"#00A896", white:"#FFFFFF", light:"#F0F4FF", muted:"#94A3B8",
+  card:"#0F2040", green:"#10B981", orange:"#F97316", purple:"#7C3AED", red:"#EF4444",
+};
+
+async function streamText(text, setter, delay = 13) {
+  setter("");
+  for (let i = 0; i < text.length; i++) {
+    await new Promise(r => setTimeout(r, delay));
+    setter(prev => prev + text[i]);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   REAL DATA LAYER — localStorage backed (ported from Career360.html)
+   ════════════════════════════════════════════════════════════════════════ */
+const DB_KEY = "career360_ultimate_db_v1";
+function loadDB(){
+  try{ const raw = localStorage.getItem(DB_KEY); if(raw) return JSON.parse(raw); }catch(e){}
+  return { users: {}, currentUserPhone: null };
+}
+function saveDB(db){ try{ localStorage.setItem(DB_KEY, JSON.stringify(db)); }catch(e){} }
+
+/* ════════════════════════════════════════════════════════════════════════
+   REAL SEED DATA — ported from backend/app/seed_data.py
+   ════════════════════════════════════════════════════════════════════════ */
+const CAREERS = [
+  {title:"Data Analyst", riasec:{R:0.2,I:0.9,A:0.2,S:0.3,E:0.3,C:0.7},
+   core_skills:["python","sql","excel","statistics","data visualization"], avg_salary_lpa:6.5, growth_outlook:"high"},
+  {title:"Software Engineer", riasec:{R:0.4,I:0.9,A:0.3,S:0.2,E:0.3,C:0.5},
+   core_skills:["python","java","data structures","system design","git"], avg_salary_lpa:8.0, growth_outlook:"high"},
+  {title:"UX Researcher", riasec:{R:0.1,I:0.6,A:0.8,S:0.7,E:0.3,C:0.2},
+   core_skills:["user interviews","figma","prototyping","communication"], avg_salary_lpa:7.0, growth_outlook:"medium"},
+  {title:"Mechanical Design Engineer", riasec:{R:0.8,I:0.7,A:0.3,S:0.1,E:0.2,C:0.4},
+   core_skills:["autocad","solidworks","thermodynamics","manufacturing"], avg_salary_lpa:5.5, growth_outlook:"medium"},
+  {title:"Digital Marketing Specialist", riasec:{R:0.1,I:0.3,A:0.6,S:0.6,E:0.8,C:0.3},
+   core_skills:["seo","content strategy","analytics","copywriting"], avg_salary_lpa:5.0, growth_outlook:"high"},
+  {title:"Financial Analyst", riasec:{R:0.1,I:0.7,A:0.1,S:0.2,E:0.6,C:0.9},
+   core_skills:["excel","financial modeling","valuation","accounting"], avg_salary_lpa:6.0, growth_outlook:"medium"},
+  {title:"Civil Engineer", riasec:{R:0.9,I:0.6,A:0.2,S:0.2,E:0.2,C:0.5},
+   core_skills:["autocad","structural analysis","project management"], avg_salary_lpa:5.0, growth_outlook:"medium"},
+  {title:"Clinical Psychologist", riasec:{R:0.1,I:0.6,A:0.3,S:0.9,E:0.2,C:0.2},
+   core_skills:["counseling","psychological assessment","empathy","research"], avg_salary_lpa:5.5, growth_outlook:"high"},
+  {title:"Product Manager", riasec:{R:0.1,I:0.6,A:0.4,S:0.5,E:0.9,C:0.4},
+   core_skills:["roadmapping","stakeholder management","analytics","communication"], avg_salary_lpa:9.0, growth_outlook:"high"},
+  {title:"Graphic Designer", riasec:{R:0.2,I:0.2,A:0.9,S:0.3,E:0.3,C:0.2},
+   core_skills:["photoshop","illustrator","typography","branding"], avg_salary_lpa:4.5, growth_outlook:"medium"},
+  {title:"AI/ML Engineer", riasec:{R:0.3,I:0.95,A:0.2,S:0.1,E:0.3,C:0.4},
+   core_skills:["python","machine learning","statistics","pytorch/tensorflow"], avg_salary_lpa:10.0, growth_outlook:"very high"},
+  {title:"HR Business Partner", riasec:{R:0.1,I:0.3,A:0.2,S:0.9,E:0.6,C:0.5},
+   core_skills:["communication","conflict resolution","labor law","recruitment"], avg_salary_lpa:5.5, growth_outlook:"medium"},
+  {title:"Electrical Engineer", riasec:{R:0.8,I:0.8,A:0.2,S:0.1,E:0.2,C:0.4},
+   core_skills:["circuit design","matlab","power systems","embedded systems"], avg_salary_lpa:5.5, growth_outlook:"medium"},
+  {title:"Entrepreneur / Founder", riasec:{R:0.3,I:0.5,A:0.5,S:0.4,E:0.95,C:0.2},
+   core_skills:["leadership","sales","fundraising","product thinking"], avg_salary_lpa:null, growth_outlook:"variable"},
+  {title:"Cybersecurity Analyst", riasec:{R:0.3,I:0.8,A:0.1,S:0.2,E:0.3,C:0.7},
+   core_skills:["networking","linux","security tools","risk assessment"], avg_salary_lpa:7.5, growth_outlook:"very high"},
+];
+
+const RIASEC_QUESTIONS = [
+  {id:"q1", text:"I enjoy building or repairing things with my hands.", dim:"R"},
+  {id:"q2", text:"I enjoy solving complex or abstract problems.", dim:"I"},
+  {id:"q3", text:"I enjoy creative work like art, music, or writing.", dim:"A"},
+  {id:"q4", text:"I enjoy helping, teaching, or counseling people.", dim:"S"},
+  {id:"q5", text:"I enjoy leading, persuading, or selling ideas.", dim:"E"},
+  {id:"q6", text:"I enjoy organizing data, records, or processes.", dim:"C"},
+  {id:"q7", text:"I like working outdoors or with machines/tools.", dim:"R"},
+  {id:"q8", text:"I like researching how and why things work.", dim:"I"},
+  {id:"q9", text:"I like designing or expressing original ideas.", dim:"A"},
+  {id:"q10", text:"I feel fulfilled when supporting others' growth.", dim:"S"},
+  {id:"q11", text:"I enjoy taking initiative and managing risk.", dim:"E"},
+  {id:"q12", text:"I prefer clear structure, rules, and precision in tasks.", dim:"C"},
+];
+
+const RESOURCE_MAP = {
+  "python":"NPTEL: Python for Data Science (free)", "sql":"Khan Academy / Mode Analytics SQL tutorial",
+  "excel":"Microsoft Excel Skills for Business (Coursera)", "statistics":"NPTEL: Statistics for Data Science",
+  "data visualization":"Tableau Public free training", "java":"NPTEL: Programming in Java",
+  "data structures":"GeeksforGeeks DSA self-paced course", "system design":"Grokking the System Design Interview (concepts)",
+  "git":"GitHub's official Git Handbook", "user interviews":"Google UX Design Certificate (Coursera)",
+  "figma":"Figma official beginner tutorials", "prototyping":"Figma + UX prototyping crash course",
+  "communication":"Toastmasters / campus soft-skills cell", "autocad":"Autodesk AutoCAD certification course",
+  "solidworks":"SolidWorks official learning path", "thermodynamics":"NPTEL: Engineering Thermodynamics",
+  "manufacturing":"NPTEL: Manufacturing Processes", "seo":"Google SEO Fundamentals (free)",
+  "content strategy":"HubSpot Content Marketing Certification", "analytics":"Google Analytics Academy",
+  "copywriting":"Copyblogger free resources", "financial modeling":"Corporate Finance Institute intro course",
+  "valuation":"NPTEL: Security Analysis and Portfolio Management", "accounting":"NPTEL: Financial Accounting",
+  "structural analysis":"NPTEL: Structural Analysis", "project management":"Google Project Management Certificate",
+  "counseling":"NIMHANS certificate courses in counseling", "psychological assessment":"APA-aligned assessment intro course",
+  "empathy":"Active listening & peer counseling workshop", "research":"Research methodology MOOC (SWAYAM)",
+  "roadmapping":"Product Management fundamentals (free YouTube/Coursera)", "stakeholder management":"PM soft-skills module",
+  "machine learning":"Andrew Ng's Machine Learning (Coursera)", "pytorch/tensorflow":"PyTorch/TF official beginner tutorials",
+  "leadership":"Campus leadership cell / NSS programs", "sales":"HubSpot Sales fundamentals (free)",
+  "fundraising":"Startup fundraising basics (Y Combinator Startup School)", "product thinking":"YC Startup School free curriculum",
+  "networking":"Cisco Networking Academy (free tier)", "linux":"Linux Journey (free)",
+  "security tools":"TryHackMe free rooms", "risk assessment":"NIST cybersecurity fundamentals",
+  "circuit design":"NPTEL: Basic Electrical Circuits", "matlab":"MATLAB Onramp (free, MathWorks)",
+  "power systems":"NPTEL: Power System Engineering", "embedded systems":"NPTEL: Embedded Systems",
+  "conflict resolution":"HR soft-skills workshop", "labor law":"Indian Labour Law basics (SWAYAM)",
+  "recruitment":"HR fundamentals certificate", "branding":"Canva Design School (free)",
+  "typography":"Canva Design School (free)", "illustrator":"Adobe official beginner tutorials",
+  "photoshop":"Adobe official beginner tutorials",
+};
+
+const ALL_SKILLS = [...new Set(CAREERS.flatMap(c => c.core_skills))].sort();
+const ACTION_VERBS = ["built","led","designed","developed","created","managed","improved","launched","analyzed","optimized","implemented","coordinated","achieved"];
+const RIASEC_DIMS = ["R","I","A","S","E","C"];
+const DIM_NAMES = {R:"Hands-on / Practical", I:"Analytical / Investigative", A:"Creative / Artistic",
+                    S:"People-focused / Social", E:"Leadership / Enterprising", C:"Structured / Organized"};
+const DIM_COLORS = {R:C.orange, I:C.cyan, A:C.purple, S:C.green, E:C.gold, C:C.teal};
+
+const FAQ = {
+  "scholarship":"Check the Scholarships panel on your Dashboard — matches are generated from your profile's eligibility data.",
+  "stream":"Stream choice should follow your Career DNA results (see Results tab), not marks alone.",
+  "resume":"Use the Resume Analyzer to paste your resume and target role — you'll get a real ATS score and gap list instantly.",
+  "internship":"Internship matches appear once your skill tags and interests are set in your profile.",
+  "mentor":"Mentor matching is coming in the next module — for now, teachers can flag students for mentor sessions.",
+  "roadmap":"Head to the Roadmap tab — pick any of the 15 careers and get a real milestone-by-milestone learning plan.",
+  "interview":"The Mock Interview tab gives you role-specific questions and instant feedback based on your actual answers.",
+};
+function chatbotReply(message){
+  const m = message.toLowerCase();
+  for(const [kw, ans] of Object.entries(FAQ)){ if(m.includes(kw)) return ans; }
+  return "I can help with scholarships, stream selection, resumes, roadmaps, internships, interviews, and mentors. Try asking about one of those!";
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   REAL AI ENGINE 1 — RIASEC Scoring
+   ════════════════════════════════════════════════════════════════════════ */
+function computeRiasecScores(responses){
+  const totals = {R:0,I:0,A:0,S:0,E:0,C:0};
+  const counts = {R:0,I:0,A:0,S:0,E:0,C:0};
+  const qById = {};
+  RIASEC_QUESTIONS.forEach(q => qById[q.id] = q);
+  Object.entries(responses).forEach(([qid, val]) => {
+    const q = qById[qid]; if(!q) return;
+    totals[q.dim] += val; counts[q.dim] += 1;
+  });
+  const scores = {};
+  RIASEC_DIMS.forEach(d => {
+    scores[d] = counts[d] > 0 ? Math.round(((totals[d]/counts[d] - 1) / 4) * 1000) / 1000 : 0;
+  });
+  return scores;
+}
+
+function cosineSimilarity(a, b){
+  let dot = 0, normA = 0, normB = 0;
+  RIASEC_DIMS.forEach(d => { dot += a[d]*b[d]; normA += a[d]*a[d]; normB += b[d]*b[d]; });
+  normA = Math.sqrt(normA); normB = Math.sqrt(normB);
+  if(normA === 0 || normB === 0) return 0;
+  return dot / (normA*normB);
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   REAL AI ENGINE 2 — Career Recommendation
+   ════════════════════════════════════════════════════════════════════════ */
+function recommendCareers(riasecScores, skillTags, topN=15){
+  skillTags = new Set((skillTags||[]).map(s => s.toLowerCase()));
+  const results = CAREERS.map(career => {
+    const baseSim = cosineSimilarity(riasecScores, career.riasec);
+    const careerSkills = new Set(career.core_skills.map(s => s.toLowerCase()));
+    const overlap = [...careerSkills].filter(s => skillTags.has(s));
+    const skillBoost = Math.min(0.15, 0.04*overlap.length);
+    const confidence = Math.round(Math.min(1, baseSim+skillBoost)*1000)/1000;
+    let topDim = RIASEC_DIMS[0], topVal = -1;
+    RIASEC_DIMS.forEach(d => { const v = (riasecScores[d]||0) * career.riasec[d]; if(v > topVal){ topVal = v; topDim = d; } });
+    let rationale = `Strong match on ${DIM_NAMES[topDim].toLowerCase()} work`;
+    if(overlap.length) rationale += `; your existing skills in ${overlap.sort().join(", ")} transfer directly`;
+    rationale += `. Growth outlook: ${career.growth_outlook}.`;
+    return {career_title: career.title, confidence, rationale, core_skills: career.core_skills,
+             avg_salary_lpa: career.avg_salary_lpa, missing: career.core_skills.filter(s => !skillTags.has(s.toLowerCase())),
+             covered: career.core_skills.filter(s => skillTags.has(s.toLowerCase()))};
+  });
+  results.sort((a,b) => b.confidence - a.confidence);
+  return results.slice(0, topN);
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   REAL AI ENGINE 3 — Roadmap Generator
+   ════════════════════════════════════════════════════════════════════════ */
+function generateRoadmap(careerTitle, studentSkillTags){
+  studentSkillTags = new Set((studentSkillTags||[]).map(s => s.toLowerCase()));
+  const career = CAREERS.find(c => c.title === careerTitle);
+  if(!career) return {career_title: careerTitle, milestones: []};
+  let milestones = career.core_skills.map(skill => {
+    const skillL = skill.toLowerCase();
+    const status = studentSkillTags.has(skillL) ? "completed" : "pending";
+    const resource = RESOURCE_MAP[skillL] || `Search NPTEL/SWAYAM/Coursera for '${skill}'`;
+    return {title: `Build proficiency: ${skill}`, resource, status};
+  });
+  milestones.sort((a,b) => (a.status==="pending"?0:1) - (b.status==="pending"?0:1));
+  return {career_title: careerTitle, milestones};
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   REAL AI ENGINE 4 — Resume ATS Analyzer
+   ════════════════════════════════════════════════════════════════════════ */
+function analyzeResume(resumeText, targetRole){
+  const career = CAREERS.find(c => c.title === targetRole);
+  const keywords = career ? career.core_skills : [];
+  const textL = resumeText.toLowerCase();
+  const missing = keywords.filter(k => !textL.includes(k.toLowerCase()));
+  const covered = keywords.length - missing.length;
+  const coveragePct = keywords.length ? covered/keywords.length : 0;
+  const wordCount = resumeText.trim().split(/\s+/).filter(Boolean).length;
+  const lengthScore = (wordCount >= 250 && wordCount <= 800) ? 1.0 : 0.6;
+  const hasContact = /[\w.-]+@[\w.-]+/.test(resumeText) || /\b\d{10}\b/.test(resumeText);
+  const contactScore = hasContact ? 1.0 : 0.3;
+  const verbHits = ACTION_VERBS.filter(v => textL.includes(v)).length;
+  const verbScore = Math.min(1, verbHits/5);
+  const atsScore = Math.round((coveragePct*0.6 + lengthScore*0.15 + contactScore*0.1 + verbScore*0.15)*1000)/10;
+  const suggestions = [];
+  if(missing.length) suggestions.push(`Add evidence of: ${missing.join(", ")}`);
+  if(lengthScore < 1.0) suggestions.push(`Aim for 250–800 words — you're currently ${wordCount < 250 ? "too short" : "too long"} (${wordCount} words)`);
+  if(contactScore < 1.0) suggestions.push("Add a visible email or phone number for recruiter contact");
+  if(verbScore < 0.6) suggestions.push("Use more action verbs (built, led, designed, improved...) to describe impact");
+  return {ats_score: atsScore, missing_keywords: missing, covered_keywords: keywords.filter(k=>!missing.includes(k)),
+          word_count: wordCount, suggestions: suggestions.length ? suggestions : ["Resume looks well-optimized for this role."]};
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   REAL-ish AI ENGINE 5 — Interview Answer Feedback (heuristic, not random)
+   ════════════════════════════════════════════════════════════════════════ */
+function scoreInterviewAnswer(answer, targetRole){
+  const career = CAREERS.find(c => c.title === targetRole);
+  const skills = career ? career.core_skills.map(s=>s.toLowerCase()) : [];
+  const textL = answer.toLowerCase();
+  const wordCount = answer.trim().split(/\s+/).filter(Boolean).length;
+  const lengthScore = Math.min(1, wordCount/70);
+  const verbHits = ACTION_VERBS.filter(v => textL.includes(v)).length;
+  const verbScore = Math.min(1, verbHits/2);
+  const numberScore = /\d/.test(answer) ? 1 : 0.3;
+  const skillHits = skills.filter(s => textL.includes(s));
+  const skillScore = skills.length ? Math.min(1, skillHits.length/2) : 0.6;
+  const raw = lengthScore*0.3 + verbScore*0.25 + numberScore*0.15 + skillScore*0.3;
+  const score = Math.round(Math.min(96, Math.max(35, raw*100)));
+
+  const notes = [];
+  if(wordCount < 25) notes.push("your answer is quite short — aim for 60–100 words with a concrete example");
+  if(verbHits === 0) notes.push("try using action verbs like 'built', 'led', or 'improved' to show ownership");
+  if(!/\d/.test(answer)) notes.push("add a measurable result (a number, %, or timeframe) to make it concrete");
+  if(skillHits.length) notes.push(`good — you referenced relevant skills: ${skillHits.join(", ")}`);
+  else if(skills.length) notes.push(`try connecting your answer to core ${targetRole} skills like ${skills.slice(0,2).join(" or ")}`);
+  if(!notes.length) notes.push("well-rounded answer with good structure and detail");
+
+  return {score, feedback: `${notes.join(". ")}. Confidence Score: ${score}%.`};
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   REUSABLE UI PRIMITIVES
+   ════════════════════════════════════════════════════════════════════════ */
+const Badge = ({ children, color = C.cyan, bg = "#0D2550" }) => (
+  <span style={{ background:bg, color, border:`1px solid ${color}40`, borderRadius:20,
+    padding:"3px 12px", fontSize:11, fontWeight:700, letterSpacing:1, display:"inline-block" }}>
+    {children}
+  </span>
+);
+
+const Card = ({ children, style={}, onClick }) => (
+  <div onClick={onClick}
+    style={{ background:C.card, borderRadius:14, padding:"18px 20px", border:"1px solid #ffffff10",
+      boxShadow:"0 4px 24px #00000040", cursor:onClick?"pointer":"default",
+      transition:"transform .15s, box-shadow .15s", ...style }}
+    onMouseEnter={e => onClick && (e.currentTarget.style.transform="translateY(-3px)")}
+    onMouseLeave={e => onClick && (e.currentTarget.style.transform="translateY(0)")}>
+    {children}
+  </div>
+);
+
+const Btn = ({ children, onClick, color=C.cyan, outline=false, style={}, disabled=false }) => (
+  <button onClick={disabled?undefined:onClick} disabled={disabled} style={{ background:outline?"transparent":color,
+    color:outline?color:C.navy, border:`2px solid ${color}`, borderRadius:10,
+    padding:"10px 22px", fontWeight:700, fontSize:14, cursor:disabled?"not-allowed":"pointer",
+    opacity:disabled?0.45:1, transition:"all .15s", fontFamily:"system-ui, sans-serif", ...style }}
+    onMouseEnter={e => !disabled && onClick && (e.currentTarget.style.opacity=".82")}
+    onMouseLeave={e => !disabled && (e.currentTarget.style.opacity="1")}>
+    {children}
+  </button>
+);
+
+const CircleScore = ({ value, label, color=C.cyan, size=90 }) => {
+  const r = size/2 - 8;
+  const circ = 2 * Math.PI * r;
+  const dash = circ * (Math.max(0,Math.min(100,value)) / 100);
+  return (
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+      <div style={{ position:"relative", width:size, height:size }}>
+        <svg width={size} height={size} style={{ transform:"rotate(-90deg)", position:"absolute",top:0,left:0 }}>
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#1a2a4a" strokeWidth={8}/>
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={8}
+            strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+            style={{ transition:"stroke-dasharray 1.2s ease" }}/>
+        </svg>
+        <div style={{ position:"absolute", top:"50%", left:"50%", transform:"translate(-50%,-50%)",
+          fontSize:size*0.22, fontWeight:900, color }}>
+          {Math.round(value)}%
+        </div>
+      </div>
+      <div style={{ fontSize:10, color:C.muted, textAlign:"center", maxWidth:size }}>{label}</div>
+    </div>
+  );
+};
+
+const ProgressBar = ({ label, value, color=C.cyan, sub }) => (
+  <div style={{ marginBottom:10 }}>
+    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+      <span style={{ fontSize:12, color:C.light }}>{label}</span>
+      <span style={{ fontSize:12, fontWeight:700, color }}>{sub || `${Math.round(value)}%`}</span>
+    </div>
+    <div style={{ background:"#1a2a4a", borderRadius:6, height:7 }}>
+      <div style={{ width:`${Math.max(0,Math.min(100,value))}%`, background:color, height:7, borderRadius:6, transition:"width 1s ease" }}/>
+    </div>
+  </div>
+);
+
+const Field = ({ children }) => <div style={{ marginBottom:14 }}>{children}</div>;
+const inputStyle = { width:"100%", background:"#1a2a4a", border:"1px solid #ffffff20", borderRadius:10,
+  padding:"12px 16px", color:C.white, fontSize:15, outline:"none", fontFamily:"system-ui" };
+const Input = (props) => <input {...props} style={{...inputStyle, ...(props.style||{})}}/>;
+const Select = ({ value, onChange, options, style }) => (
+  <select value={value} onChange={onChange} style={{...inputStyle, ...style}}>
+    {options.map(o => typeof o === "string" ? <option key={o} value={o}>{o}</option> : <option key={o.value} value={o.value}>{o.label}</option>)}
+  </select>
+);
+const ErrorText = ({ children }) => children ? (
+  <div style={{ color:C.red, fontSize:13, background:"#3a1420", border:`1px solid ${C.red}40`, borderRadius:8, padding:"8px 12px", marginBottom:14 }}>{children}</div>
+) : null;
+
+/* ════════════════════════════════════════════════════════════════════════
+   BOTTOM NAV
+   ════════════════════════════════════════════════════════════════════════ */
+const BottomNav = ({ screen, go }) => {
+  const tabs = [
+    { ic:"⚡", s:"dashboard", label:"Dashboard" },
+    { ic:"🎯", s:"results", label:"Matches" },
+    { ic:"📊", s:"gap", label:"Gap" },
+    { ic:"🗺️", s:"roadmap", label:"Roadmap" },
+    { ic:"📄", s:"resume", label:"Resume" },
+    { ic:"🎤", s:"interview", label:"Interview" },
+  ];
+  return (
+    <div style={{ position:"fixed", bottom:16, left:"50%", transform:"translateX(-50%)",
+      background:"#0F2040ee", backdropFilter:"blur(16px)", border:"1px solid #ffffff15",
+      borderRadius:24, padding:"8px 12px", display:"flex", gap:4, zIndex:999,
+      boxShadow:"0 8px 40px #00000070" }}>
+      {tabs.map(({ic,s,label}) => (
+        <button key={s} onClick={() => go(s)} title={label}
+          style={{ background:screen===s?C.cyan:"transparent", color:screen===s?C.navy:C.muted,
+            border:"none", borderRadius:14, padding:"7px 13px", fontSize:17, cursor:"pointer",
+            transition:"all .2s", fontFamily:"system-ui" }}>
+          {ic}
+        </button>
+      ))}
+    </div>
+  );
+};
+
+/* ════════════════════════════════════════════════════════════════════════
+   CHAT WIDGET (real rule-based FAQ engine)
+   ════════════════════════════════════════════════════════════════════════ */
+function ChatWidget(){
+  const [open, setOpen] = useState(false);
+  const [msgs, setMsgs] = useState([{sender:"bot", text:"Hi! I can help with scholarships, stream selection, resumes, roadmaps, internships, and mentors. What's on your mind?"}]);
+  const [input, setInput] = useState("");
+  const boxRef = useRef(null);
+
+  useEffect(() => { if(boxRef.current) boxRef.current.scrollTop = boxRef.current.scrollHeight; }, [msgs, open]);
+
+  const send = () => {
+    const text = input.trim();
+    if(!text) return;
+    setMsgs(m => [...m, {sender:"user", text}]);
+    setInput("");
+    setTimeout(() => setMsgs(m => [...m, {sender:"bot", text: chatbotReply(text)}]), 350);
+  };
+
+  return (
+    <>
+      <button onClick={() => setOpen(o=>!o)} style={{ position:"fixed", bottom:open?"auto":90, top:open?"auto":"auto",
+        right:20, bottom:90, width:54, height:54, borderRadius:"50%", background:C.cyan, color:C.navy,
+        border:"none", fontSize:24, cursor:"pointer", zIndex:1001, boxShadow:"0 6px 24px #00000060" }}>
+        {open ? "✕" : "💬"}
+      </button>
+      {open && (
+        <div style={{ position:"fixed", bottom:154, right:20, width:320, maxWidth:"88vw", height:400,
+          background:C.card, border:"1px solid #ffffff15", borderRadius:16, display:"flex", flexDirection:"column",
+          boxShadow:"0 12px 48px #00000080", zIndex:1000, overflow:"hidden" }} className="animate-fade">
+          <div style={{ padding:"14px 16px", background:C.blue, fontWeight:800, color:C.white, fontSize:14 }}>
+            🤖 Career360 Assistant
+          </div>
+          <div ref={boxRef} style={{ flex:1, overflowY:"auto", padding:"12px 14px", display:"flex", flexDirection:"column", gap:8 }}>
+            {msgs.map((m,i) => (
+              <div key={i} style={{ alignSelf:m.sender==="user"?"flex-end":"flex-start", maxWidth:"85%",
+                background:m.sender==="user"?C.cyan:"#1a2a4a", color:m.sender==="user"?C.navy:C.light,
+                padding:"8px 12px", borderRadius:12, fontSize:13, lineHeight:1.5 }}>
+                {m.text}
+              </div>
+            ))}
+          </div>
+          <div style={{ display:"flex", borderTop:"1px solid #ffffff10" }}>
+            <input value={input} onChange={e=>setInput(e.target.value)} onKeyPress={e=>e.key==="Enter"&&send()}
+              placeholder="Ask about scholarships, resume..." style={{ flex:1, background:"transparent", border:"none",
+              color:C.white, padding:"12px 14px", fontSize:13, outline:"none" }}/>
+            <button onClick={send} style={{ background:"transparent", border:"none", color:C.cyan, fontWeight:700, padding:"0 16px", cursor:"pointer" }}>Send</button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   SCREEN — HOME / LANDING
+   ════════════════════════════════════════════════════════════════════════ */
+function HomeScreen({ go, user }) {
+  const features = [
+    { ic:"🧬", t:"Career DNA Engine", d:"Real RIASEC psychometrics scored against 15 career profiles using cosine similarity" },
+    { ic:"📊", t:"Skill Gap Analyzer", d:"See exactly which skills you're missing for your top-matched careers, ranked" },
+    { ic:"🗺️", t:"AI Roadmap Generator", d:"Milestone-by-milestone learning plan with real free-course resources (NPTEL/SWAYAM/Coursera)" },
+    { ic:"🎤", t:"Mock Interview AI", d:"Role-specific questions with heuristic feedback on structure, evidence, and impact" },
+    { ic:"📄", t:"ATS Resume Analyzer", d:"Real keyword-coverage, length, and action-verb scoring — not a random number" },
+    { ic:"🏆", t:"Persistent Profile", d:"Your assessment, skills, resume score, and roadmap saved to your account" },
+  ];
+  const stack = ["FastAPI","Next.js 14","JWT Auth","Python AI Modules","RIASEC Psychometrics","PostgreSQL"];
+  return (
+    <div style={{ minHeight:"100vh", background:C.navy, color:C.white }} className="animate-fade">
+      <nav style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+        padding:"14px 40px", borderBottom:"1px solid #ffffff10", position:"sticky", top:0,
+        background:C.navy+"ee", backdropFilter:"blur(12px)", zIndex:100, flexWrap:"wrap", gap:10 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <div style={{ width:38, height:38, borderRadius:"50%", background:C.cyan,
+            display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>🧠</div>
+          <span style={{ fontSize:22, fontWeight:900 }}>Career<span style={{ color:C.cyan }}>360</span></span>
+        </div>
+        <div style={{ display:"flex", gap:12, alignItems:"center", flexWrap:"wrap" }}>
+          <Badge color={C.gold}>SIH 2026 · PS-SIH25094</Badge>
+          {user ? (
+            <Btn onClick={() => go("dashboard")} style={{ padding:"8px 20px", fontSize:13 }}>Go to Dashboard →</Btn>
+          ) : (
+            <>
+              <Btn onClick={() => go("login")} outline style={{ padding:"8px 20px", fontSize:13 }}>Login</Btn>
+              <Btn onClick={() => go("register")} style={{ padding:"8px 20px", fontSize:13 }}>Get Started Free →</Btn>
+            </>
+          )}
+        </div>
+      </nav>
+
+      <div style={{ textAlign:"center", padding:"80px 32px 60px" }}>
+        <Badge color={C.teal} bg="#003330">🇮🇳 India's AI Career Operating System</Badge>
+        <h1 style={{ fontSize:"clamp(36px,6vw,70px)", fontWeight:900, margin:"20px 0 16px", lineHeight:1.1 }}>
+          Your Career,<br/><span style={{ color:C.cyan }}>Powered by Real AI</span>
+        </h1>
+        <p style={{ fontSize:18, color:C.muted, maxWidth:560, margin:"0 auto 36px", lineHeight:1.7 }}>
+          Not a mockup — a working recommendation engine, ATS scorer, and roadmap generator.<br/>
+          Take the assessment once, get a profile that keeps working for you.
+        </p>
+        <div style={{ display:"flex", gap:14, justifyContent:"center", flexWrap:"wrap" }}>
+          <Btn onClick={() => go(user ? "assessment" : "register")} style={{ fontSize:16, padding:"14px 36px" }}>🚀 Start Career Assessment</Btn>
+          {user && <Btn onClick={() => go("dashboard")} outline style={{ fontSize:16, padding:"14px 36px" }}>📊 My Dashboard</Btn>}
+        </div>
+
+        <div style={{ display:"flex", justifyContent:"center", gap:48, marginTop:60, flexWrap:"wrap" }}>
+          {[["15","Career Profiles"],["12","RIASEC Questions"],["48","Trackable Core Skills"],["100%","Real Computed Scores"]].map(([v,l]) => (
+            <div key={l} style={{ textAlign:"center" }}>
+              <div style={{ fontSize:34, fontWeight:900, color:C.cyan }}>{v}</div>
+              <div style={{ fontSize:12, color:C.muted, marginTop:4 }}>{l}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ maxWidth:1000, margin:"0 auto", padding:"0 32px 80px" }}>
+        <h2 style={{ textAlign:"center", fontSize:28, fontWeight:800, marginBottom:32 }}>
+          Real AI Engines. <span style={{ color:C.gold }}>One Platform.</span>
+        </h2>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:16 }}>
+          {features.map(f => (
+            <Card key={f.t} onClick={() => go(user ? "dashboard" : "register")} style={{ display:"flex", gap:14, alignItems:"flex-start" }}>
+              <div style={{ fontSize:30, flexShrink:0 }}>{f.ic}</div>
+              <div>
+                <div style={{ fontWeight:700, marginBottom:6, color:C.white, fontSize:15 }}>{f.t}</div>
+                <div style={{ fontSize:13, color:C.muted, lineHeight:1.6 }}>{f.d}</div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ background:C.blue, textAlign:"center", padding:"44px 32px" }}>
+        <p style={{ fontSize:12, color:C.muted, marginBottom:14, letterSpacing:2, fontWeight:600 }}>BUILT WITH</p>
+        <div style={{ display:"flex", gap:12, justifyContent:"center", flexWrap:"wrap" }}>
+          {stack.map(t => <Badge key={t} color={C.cyan}>{t}</Badge>)}
+        </div>
+        <p style={{ marginTop:20, fontSize:12, color:C.muted }}>
+          Built by Team HV · Harish B · V.S.B. Engineering College, Karur · ECE 2024–2028
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   SCREEN — REGISTER (multi-step onboarding → real account)
+   ════════════════════════════════════════════════════════════════════════ */
+function RegisterScreen({ go, onRegister }) {
+  const [step, setStep] = useState(0);
+  const [form, setForm] = useState({ name:"", phone:"", email:"", password:"", role:"student",
+    state:"Tamil Nadu", lang:"Tamil", level:"B.Tech / B.E.", stream:"Engineering – ECE", skills:[] });
+  const [error, setError] = useState("");
+  const upd = (k,v) => setForm(p => ({...p,[k]:v}));
+  const toggleSkill = (s) => setForm(p => ({...p, skills: p.skills.includes(s) ? p.skills.filter(x=>x!==s) : [...p.skills, s]}));
+  const steps = ["Account","Education Profile","Your Skills"];
+
+  const next = () => {
+    setError("");
+    if(step === 0){
+      if(!form.name.trim() || !form.phone.trim() || !form.password){ setError("Please fill in name, phone, and password."); return; }
+      setStep(1); return;
+    }
+    if(step === 1){ setStep(2); return; }
+    const res = onRegister(form);
+    if(res && res.error){ setError(res.error); return; }
+  };
+
+  return (
+    <div style={{ minHeight:"100vh", background:C.navy, display:"flex", alignItems:"center",
+      justifyContent:"center", padding:24 }} className="animate-fade">
+      <div style={{ width:"100%", maxWidth:480 }}>
+        <div style={{ textAlign:"center", marginBottom:28 }}>
+          <div style={{ fontSize:44, marginBottom:8 }}>🧬</div>
+          <h2 style={{ color:C.white, fontWeight:800, fontSize:26 }}>Create your Career360 account</h2>
+          <p style={{ color:C.muted, marginTop:8 }}>Step {step+1} of 3 — {steps[step]}</p>
+        </div>
+
+        <div style={{ display:"flex", gap:6, marginBottom:24 }}>
+          {steps.map((_,i) => (
+            <div key={i} style={{ flex:1, height:4, borderRadius:4, background:i<=step?C.cyan:"#1a2a4a", transition:"background .3s" }}/>
+          ))}
+        </div>
+
+        <Card>
+          <ErrorText>{error}</ErrorText>
+          {step===0 && (
+            <div>
+              <Field><Input placeholder="Full name" value={form.name} onChange={e=>upd("name",e.target.value)}/></Field>
+              <Field><Input placeholder="Phone number" value={form.phone} onChange={e=>upd("phone",e.target.value)}/></Field>
+              <Field><Input placeholder="Email (optional)" value={form.email} onChange={e=>upd("email",e.target.value)}/></Field>
+              <Field><Input type="password" placeholder="Password" value={form.password} onChange={e=>upd("password",e.target.value)}/></Field>
+              <Field>
+                <Select value={form.role} onChange={e=>upd("role",e.target.value)}
+                  options={[{value:"student",label:"Student"},{value:"parent",label:"Parent"},{value:"teacher",label:"Teacher"},{value:"mentor",label:"Mentor"},{value:"recruiter",label:"Recruiter"}]}/>
+              </Field>
+            </div>
+          )}
+          {step===1 && (
+            <div>
+              <Field><Select value={form.state} onChange={e=>upd("state",e.target.value)}
+                options={["Tamil Nadu","Maharashtra","Karnataka","Kerala","Rajasthan","Uttar Pradesh","Bihar","West Bengal","Gujarat","Andhra Pradesh","Telangana","Madhya Pradesh","Odisha","Punjab"]}/></Field>
+              <Field><Select value={form.lang} onChange={e=>upd("lang",e.target.value)}
+                options={["Tamil","Hindi","Telugu","Kannada","Malayalam","Marathi","Bengali","Gujarati","Punjabi","Odia","English"]}/></Field>
+              <Field><Select value={form.level} onChange={e=>upd("level",e.target.value)}
+                options={["Class 10","Class 12","Diploma","B.Tech / B.E.","B.Sc / B.A / B.Com","M.Tech / MBA","Job Seeker (0-2 yrs gap)","Experienced Professional"]}/></Field>
+              <Field><Select value={form.stream} onChange={e=>upd("stream",e.target.value)}
+                options={["Science (PCM)","Science (PCB)","Commerce","Arts / Humanities","Engineering – ECE","Engineering – CSE","Engineering – Mech","Engineering – Civil","Polytechnic Diploma"]}/></Field>
+            </div>
+          )}
+          {step===2 && (
+            <div>
+              <p style={{ color:C.muted, fontSize:13, marginBottom:12 }}>Pick any skills you already have — this sharpens your recommendations and roadmap (optional, you can skip).</p>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:8, maxHeight:280, overflowY:"auto" }}>
+                {ALL_SKILLS.map(s => (
+                  <div key={s} onClick={()=>toggleSkill(s)}
+                    style={{ padding:"7px 13px", borderRadius:20, cursor:"pointer", fontSize:12, fontWeight:600,
+                      border:`1.5px solid ${form.skills.includes(s)?C.cyan:"#ffffff25"}`,
+                      color:form.skills.includes(s)?C.cyan:C.muted,
+                      background:form.skills.includes(s)?"#00c8e015":"transparent", transition:"all .15s" }}>
+                    {form.skills.includes(s)?"✓ ":""}{s}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Card>
+
+        <div style={{ display:"flex", gap:12, marginTop:18 }}>
+          {step>0 && <Btn onClick={() => setStep(s=>s-1)} outline style={{ flex:1 }}>← Back</Btn>}
+          <Btn onClick={next} style={{ flex:2 }}>{step<2 ? "Continue →" : "🧬 Create Account & Start Assessment"}</Btn>
+        </div>
+        <p style={{ textAlign:"center", color:C.muted, fontSize:12, marginTop:16 }}>
+          Already have an account? <span onClick={()=>go("login")} style={{ color:C.cyan, cursor:"pointer", textDecoration:"underline" }}>Login</span>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   SCREEN — LOGIN
+   ════════════════════════════════════════════════════════════════════════ */
+function LoginScreen({ go, onLogin }) {
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const submit = () => {
+    const res = onLogin(identifier.trim(), password);
+    if(res && res.error) setError(res.error);
+  };
+
+  return (
+    <div style={{ minHeight:"100vh", background:C.navy, display:"flex", alignItems:"center",
+      justifyContent:"center", padding:24 }} className="animate-fade">
+      <div style={{ width:"100%", maxWidth:420 }}>
+        <div style={{ textAlign:"center", marginBottom:28 }}>
+          <div style={{ fontSize:44, marginBottom:8 }}>🧠</div>
+          <h2 style={{ color:C.white, fontWeight:800, fontSize:26 }}>Welcome back</h2>
+        </div>
+        <Card>
+          <ErrorText>{error}</ErrorText>
+          <Field><Input placeholder="Phone or email" value={identifier} onChange={e=>setIdentifier(e.target.value)}/></Field>
+          <Field><Input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} onKeyPress={e=>e.key==="Enter"&&submit()}/></Field>
+          <Btn onClick={submit} style={{ width:"100%" }}>Login</Btn>
+        </Card>
+        <p style={{ textAlign:"center", color:C.muted, fontSize:12, marginTop:16 }}>
+          New here? <span onClick={()=>go("register")} style={{ color:C.cyan, cursor:"pointer", textDecoration:"underline" }}>Create an account</span>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   SCREEN — ASSESSMENT (real RIASEC test)
+   ════════════════════════════════════════════════════════════════════════ */
+function AssessmentScreen({ go, user, onSubmitAssessment }) {
+  const [responses, setResponses] = useState({});
+  const [error, setError] = useState("");
+
+  const select = (qid, val) => setResponses(r => ({...r, [qid]: val}));
+  const submit = () => {
+    if(Object.keys(responses).length < RIASEC_QUESTIONS.length){ setError("Please answer all questions before submitting."); return; }
+    setError("");
+    onSubmitAssessment(responses);
+    go("analyzing");
+  };
+
+  return (
+    <div style={{ minHeight:"100vh", background:C.navy, color:C.white, padding:"24px 20px 120px" }} className="animate-fade">
+      <div style={{ maxWidth:720, margin:"0 auto" }}>
+        <Badge color={C.gold}>Career DNA Assessment</Badge>
+        <h1 style={{ margin:"10px 0 4px", fontSize:26, fontWeight:800 }}>Rate each statement</h1>
+        <p style={{ color:C.muted, marginBottom:20 }}>1 (Strongly Disagree) to 5 (Strongly Agree) — answer honestly, there are no wrong answers.</p>
+        <ErrorText>{error}</ErrorText>
+        {RIASEC_QUESTIONS.map(q => (
+          <Card key={q.id} style={{ marginBottom:12 }}>
+            <p style={{ marginBottom:12, fontSize:14, color:C.light }}>{q.text}</p>
+            <div style={{ display:"flex", gap:8 }}>
+              {[1,2,3,4,5].map(v => (
+                <button key={v} onClick={()=>select(q.id,v)}
+                  style={{ flex:1, padding:"10px 0", borderRadius:8, cursor:"pointer", fontWeight:700,
+                    border:`2px solid ${responses[q.id]===v?DIM_COLORS[q.dim]:"#ffffff20"}`,
+                    background:responses[q.id]===v?DIM_COLORS[q.dim]+"25":"transparent",
+                    color:responses[q.id]===v?DIM_COLORS[q.dim]:C.muted, transition:"all .15s" }}>
+                  {v}
+                </button>
+              ))}
+            </div>
+          </Card>
+        ))}
+        <Btn onClick={submit} style={{ width:"100%", padding:"14px", fontSize:15 }}>Submit Assessment →</Btn>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   SCREEN — ANALYZING (transition, real narrative built from real results)
+   ════════════════════════════════════════════════════════════════════════ */
+function AnalyzingScreen({ go, user }) {
+  useEffect(() => {
+    const t = setTimeout(() => go("results"), 2200);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <div style={{ minHeight:"100vh", background:C.navy, display:"flex", flexDirection:"column",
+      alignItems:"center", justifyContent:"center", gap:20, color:C.white }} className="animate-fade">
+      <div style={{ fontSize:60, animation:"spin 2s linear infinite" }}>🧬</div>
+      <h2 style={{ fontWeight:800, fontSize:24 }}>Analyzing Your Career DNA...</h2>
+      <p style={{ color:C.muted }}>Scoring your RIASEC profile against 15 real career vectors</p>
+      <div style={{ display:"flex", gap:12, flexWrap:"wrap", justifyContent:"center", marginTop:8 }}>
+        {["Computing RIASEC scores","Cosine-matching careers","Ranking by skill overlap","Generating report"].map((s,i) => (
+          <span key={s} style={{ fontSize:12, color:C.cyan, animation:`pulse 1.5s ease ${i*0.3}s infinite` }}>⚡ {s}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   SCREEN — RESULTS (real recommendations)
+   ════════════════════════════════════════════════════════════════════════ */
+function ResultsScreen({ go, user }) {
+  const [aiText, setAiText] = useState("");
+  const hasAssessment = !!(user && user.riasec_scores);
+  const recs = hasAssessment ? recommendCareers(user.riasec_scores, user.skills, 5) : [];
+  const top = hasAssessment ? recs[0] : null;
+
+  useEffect(() => {
+    if(!hasAssessment) return;
+    const narrative = `Based on your RIASEC profile, your strongest signal is ${DIM_NAMES[Object.entries(user.riasec_scores).sort((a,b)=>b[1]-a[1])[0][0]].toLowerCase()} work. Your #1 computed match is ${top.career_title} at ${Math.round(top.confidence*100)}% confidence — ${top.rationale} With a focused roadmap on the missing skills, you can raise this fit further.`;
+    streamText(narrative, setAiText, 12);
+  }, [hasAssessment]);
+
+  if(!hasAssessment){
+    return (
+      <div style={{ minHeight:"100vh", background:C.navy, color:C.white, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
+        <Card style={{ textAlign:"center", maxWidth:420 }}>
+          <p style={{ marginBottom:16 }}>Take the Career DNA Assessment first to see your real matches.</p>
+          <Btn onClick={()=>go("assessment")}>Take Assessment →</Btn>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight:"100vh", background:C.navy, color:C.white, padding:"24px 20px 120px" }} className="animate-fade">
+      <div style={{ maxWidth:900, margin:"0 auto" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:24, flexWrap:"wrap", gap:12 }}>
+          <div>
+            <Badge color={C.gold}>✅ Career DNA Analysis Complete</Badge>
+            <h1 style={{ margin:"10px 0 4px", fontSize:26, fontWeight:800 }}>Your Career Suitability Report</h1>
+            <p style={{ color:C.muted }}>Computed from your real RIASEC scores + skill tags</p>
+          </div>
+          <Btn onClick={() => go("gap")}>View Skill Gaps →</Btn>
+        </div>
+
+        <Card style={{ background:"#0a2040", border:`1px solid ${C.cyan}30`, marginBottom:20 }}>
+          <div style={{ display:"flex", gap:12, alignItems:"flex-start" }}>
+            <div style={{ fontSize:24, flexShrink:0 }}>🤖</div>
+            <div>
+              <div style={{ fontSize:10, color:C.cyan, fontWeight:700, letterSpacing:1.5, marginBottom:8 }}>AI CAREER ADVISOR · CAREER360</div>
+              <p style={{ margin:0, color:C.light, lineHeight:1.8, fontSize:14 }}>{aiText}<span style={{ opacity:0.4 }}>|</span></p>
+            </div>
+          </div>
+        </Card>
+
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+          <Card>
+            <h3 style={{ margin:"0 0 18px", color:C.cyan, fontSize:15, fontWeight:700 }}>🎯 Top Career Matches</h3>
+            {recs.map((r,i) => (
+              <div key={r.career_title} style={{ marginBottom:16 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
+                  <span style={{ fontSize:13, fontWeight:600 }}>#{i+1} {r.career_title}</span>
+                  <span style={{ fontSize:14, fontWeight:900, color:C.gold }}>{Math.round(r.confidence*100)}%</span>
+                </div>
+                <div style={{ background:"#1a2a4a", borderRadius:5, height:7, marginBottom:5 }}>
+                  <div style={{ width:`${Math.round(r.confidence*100)}%`, background:C.gold, height:7, borderRadius:5, transition:"width 1.2s ease" }}/>
+                </div>
+                <p style={{ margin:0, fontSize:11, color:C.muted }}>{r.rationale}</p>
+                <span onClick={()=>go("roadmap")} style={{ fontSize:11, color:C.cyan, cursor:"pointer", textDecoration:"underline" }}>View roadmap →</span>
+              </div>
+            ))}
+          </Card>
+
+          <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+            <Card>
+              <h3 style={{ margin:"0 0 16px", color:C.gold, fontSize:15, fontWeight:700 }}>🧠 Your RIASEC Profile</h3>
+              {RIASEC_DIMS.map(d => (
+                <ProgressBar key={d} label={`${d} · ${DIM_NAMES[d]}`} value={(user.riasec_scores[d]||0)*100} color={DIM_COLORS[d]}/>
+              ))}
+            </Card>
+            <Card style={{ background:"#0D2020", border:`1px solid ${C.teal}40` }}>
+              <div style={{ display:"flex", justifyContent:"space-around", padding:"8px 0" }}>
+                <CircleScore value={top.confidence*100} label="Top Career Match" color={C.gold}/>
+                <CircleScore value={(user.skills.length/8)*100} label="Skill Portfolio Strength" color={C.cyan}/>
+              </div>
+            </Card>
+          </div>
+        </div>
+
+        <div style={{ marginTop:24, display:"flex", gap:12, justifyContent:"center" }}>
+          <Btn onClick={() => go("gap")} style={{ padding:"12px 32px" }}>📊 Analyze Skill Gaps →</Btn>
+          <Btn onClick={() => go("roadmap")} outline>🗺️ View My Roadmap</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   SCREEN — GAP ANALYZER (real coverage vs top careers)
+   ════════════════════════════════════════════════════════════════════════ */
+function GapScreen({ go, user }) {
+  if(!user || !user.riasec_scores){
+    return (
+      <div style={{ minHeight:"100vh", background:C.navy, color:C.white, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
+        <Card style={{ textAlign:"center", maxWidth:420 }}>
+          <p style={{ marginBottom:16 }}>Take the assessment first to unlock your gap report.</p>
+          <Btn onClick={()=>go("assessment")}>Take Assessment →</Btn>
+        </Card>
+      </div>
+    );
+  }
+  const recs = recommendCareers(user.riasec_scores, user.skills, 3);
+  const priorityLabel = ["Primary Target","Alternative Path","Backup Option"];
+  const priorityColor = [C.red, C.orange, C.gold];
+
+  return (
+    <div style={{ minHeight:"100vh", background:C.navy, color:C.white, padding:"24px 20px 120px" }} className="animate-fade">
+      <div style={{ maxWidth:860, margin:"0 auto" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:24, flexWrap:"wrap", gap:12 }}>
+          <div>
+            <Badge color={C.orange}>Skill Gap Analysis</Badge>
+            <h1 style={{ margin:"10px 0 4px", fontSize:26, fontWeight:800 }}>Your Skill Gap Report</h1>
+            <p style={{ color:C.muted }}>Real coverage vs your top 3 computed career matches</p>
+          </div>
+          <Btn onClick={() => go("roadmap")}>Get My Roadmap →</Btn>
+        </div>
+
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:14, marginBottom:20 }}>
+          {recs.map((r,i) => (
+            <Card key={r.career_title} style={{ textAlign:"center", padding:"16px 12px" }}>
+              <div style={{ fontSize:11, color:priorityColor[i], fontWeight:700, marginBottom:6 }}>{priorityLabel[i]}</div>
+              <div style={{ fontWeight:800, fontSize:14 }}>{r.career_title}</div>
+              <div style={{ fontSize:11, color:C.muted, marginTop:4 }}>{r.covered.length}/{r.core_skills.length} skills covered</div>
+            </Card>
+          ))}
+        </div>
+
+        {recs.map((r,i) => (
+          <Card key={r.career_title} style={{ marginBottom:16 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+              <h3 style={{ margin:0, fontSize:15, fontWeight:700, color:priorityColor[i] }}>{r.career_title}</h3>
+              <span style={{ fontSize:12, color:C.gold, fontWeight:700 }}>{Math.round((r.covered.length/r.core_skills.length)*100)}% ready</span>
+            </div>
+            <div style={{ background:"#1a2a4a", borderRadius:6, height:8, marginBottom:12 }}>
+              <div style={{ width:`${Math.round((r.covered.length/r.core_skills.length)*100)}%`, background:priorityColor[i], height:8, borderRadius:6, transition:"width 1s ease" }}/>
+            </div>
+            {r.covered.length > 0 && (
+              <div style={{ marginBottom:8 }}>
+                <span style={{ fontSize:11, color:C.green, fontWeight:700 }}>✓ Have: </span>
+                {r.covered.map(s => <span key={s} style={{ fontSize:11, background:C.green+"20", color:C.green, padding:"3px 9px", borderRadius:10, marginRight:6 }}>{s}</span>)}
+              </div>
+            )}
+            {r.missing.length > 0 && (
+              <div>
+                <span style={{ fontSize:11, color:C.red, fontWeight:700 }}>✗ Missing: </span>
+                {r.missing.map(s => <span key={s} style={{ fontSize:11, background:C.red+"20", color:C.red, padding:"3px 9px", borderRadius:10, marginRight:6 }}>{s}</span>)}
+              </div>
+            )}
+          </Card>
+        ))}
+
+        <div style={{ marginTop:24, display:"flex", gap:12, justifyContent:"center" }}>
+          <Btn onClick={() => go("roadmap")} style={{ padding:"12px 32px" }}>🗺️ Generate My AI Roadmap →</Btn>
+          <Btn onClick={() => go("resume")} outline>📄 Analyze Resume</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   SCREEN — ROADMAP (real milestone generator)
+   ════════════════════════════════════════════════════════════════════════ */
+function RoadmapScreen({ go, user }) {
+  const recs = user && user.riasec_scores ? recommendCareers(user.riasec_scores, user.skills, 15) : [];
+  const defaultCareer = recs.length ? recs[0].career_title : CAREERS[0].title;
+  const [career, setCareer] = useState(defaultCareer);
+  const roadmap = generateRoadmap(career, user ? user.skills : []);
+  const pending = roadmap.milestones.filter(m=>m.status==="pending");
+  const completed = roadmap.milestones.filter(m=>m.status==="completed");
+  const progressPct = roadmap.milestones.length ? Math.round((completed.length/roadmap.milestones.length)*100) : 0;
+
+  return (
+    <div style={{ minHeight:"100vh", background:C.navy, color:C.white, padding:"24px 20px 120px" }} className="animate-fade">
+      <div style={{ maxWidth:860, margin:"0 auto" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:24, flexWrap:"wrap", gap:12 }}>
+          <div>
+            <Badge color={C.teal}>AI Roadmap Generator</Badge>
+            <h1 style={{ margin:"10px 0 4px", fontSize:26, fontWeight:800 }}>Your Personalized Roadmap</h1>
+            <p style={{ color:C.muted }}>Real milestone plan generated from your skill tags</p>
+          </div>
+          <Btn onClick={() => go("resume")}>Check Resume →</Btn>
+        </div>
+
+        <div style={{ display:"flex", gap:10, marginBottom:20, alignItems:"center", flexWrap:"wrap" }}>
+          <span style={{ fontSize:13, color:C.muted }}>Target career:</span>
+          <Select value={career} onChange={e=>setCareer(e.target.value)} options={CAREERS.map(c=>c.title)} style={{ width:"auto", minWidth:220 }}/>
+        </div>
+
+        <div style={{ display:"grid", gridTemplateColumns:"1.3fr 1fr", gap:16 }}>
+          <Card>
+            <h3 style={{ margin:"0 0 16px", color:C.cyan, fontSize:15, fontWeight:700 }}>📋 Milestones to build</h3>
+            {pending.length === 0 && completed.length === 0 && <p style={{ color:C.muted, fontSize:13 }}>No data for this career.</p>}
+            {pending.map((m,j) => (
+              <div key={j} style={{ display:"flex", gap:10, alignItems:"flex-start", marginBottom:14 }}>
+                <div style={{ width:20, height:20, borderRadius:5, flexShrink:0, marginTop:2,
+                  background:"#1a2a4a", border:"2px solid #ffffff30", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11 }}/>
+                <div>
+                  <div style={{ fontSize:13, fontWeight:600, color:C.light }}>{m.title}</div>
+                  <div style={{ fontSize:11, color:C.muted, marginTop:2 }}>{m.resource}</div>
+                </div>
+              </div>
+            ))}
+            {completed.length > 0 && (
+              <>
+                <div style={{ fontSize:11, color:C.green, fontWeight:700, letterSpacing:1, margin:"14px 0 8px" }}>ALREADY STRONG</div>
+                {completed.map((m,j) => (
+                  <div key={j} style={{ display:"flex", gap:10, alignItems:"flex-start", marginBottom:10 }}>
+                    <div style={{ width:20, height:20, borderRadius:5, flexShrink:0, marginTop:2,
+                      background:C.green, border:`2px solid ${C.green}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11 }}>✓</div>
+                    <div style={{ fontSize:13, color:C.muted, textDecoration:"line-through" }}>{m.title}</div>
+                  </div>
+                ))}
+              </>
+            )}
+          </Card>
+
+          <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+            <Card style={{ textAlign:"center", background:"#0a2040", border:`1px solid ${C.cyan}30` }}>
+              <div style={{ fontSize:38, fontWeight:900, color:C.cyan }}>{progressPct}%</div>
+              <div style={{ fontSize:13, color:C.muted, marginBottom:8 }}>Progress to Career Ready</div>
+              <div style={{ background:"#1a2a4a", borderRadius:8, height:10 }}>
+                <div style={{ width:`${progressPct}%`, background:`linear-gradient(90deg,${C.cyan},${C.teal})`, height:10, borderRadius:8, transition:"width 1.2s ease" }}/>
+              </div>
+              <div style={{ fontSize:11, color:C.muted, marginTop:8 }}>{completed.length} of {roadmap.milestones.length} core skills covered</div>
+            </Card>
+            <Card>
+              <h3 style={{ margin:"0 0 8px", fontSize:14, fontWeight:700, color:C.gold }}>💼 Career facts</h3>
+              {(() => { const c = CAREERS.find(x=>x.title===career); return c ? (
+                <>
+                  <p style={{ fontSize:12, color:C.muted, margin:"4px 0" }}>Avg salary: <span style={{ color:C.light }}>{c.avg_salary_lpa ? `₹${c.avg_salary_lpa} LPA` : "Variable"}</span></p>
+                  <p style={{ fontSize:12, color:C.muted, margin:"4px 0" }}>Growth outlook: <span style={{ color:C.light }}>{c.growth_outlook}</span></p>
+                </>
+              ) : null; })()}
+            </Card>
+          </div>
+        </div>
+
+        <div style={{ marginTop:24, display:"flex", gap:12, justifyContent:"center" }}>
+          <Btn onClick={() => go("resume")} style={{ padding:"12px 32px" }}>📄 Analyze My Resume →</Btn>
+          <Btn onClick={() => go("interview")} outline>🎤 Start Mock Interview</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   SCREEN — RESUME ATS ANALYZER (real)
+   ════════════════════════════════════════════════════════════════════════ */
+function ResumeScreen({ go, user, onSaveResumeScore }) {
+  const [role, setRole] = useState(CAREERS[0].title);
+  const [text, setText] = useState("");
+  const [state, setState] = useState("upload");
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+
+  const analyze = () => {
+    if(!text.trim()){ setError("Please paste your resume text first."); return; }
+    setError("");
+    setState("scanning");
+    setTimeout(() => {
+      const r = analyzeResume(text, role);
+      setResult(r);
+      setState("result");
+      onSaveResumeScore(r.ats_score);
+    }, 1800);
+  };
+
+  const pc = { Critical:C.red, High:C.orange, Medium:C.gold };
+
+  return (
+    <div style={{ minHeight:"100vh", background:C.navy, color:C.white, padding:"24px 20px 120px" }} className="animate-fade">
+      <div style={{ maxWidth:860, margin:"0 auto" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:24, flexWrap:"wrap", gap:12 }}>
+          <div>
+            <Badge color={C.purple}>ATS Resume Analyzer</Badge>
+            <h1 style={{ margin:"10px 0 4px", fontSize:26, fontWeight:800 }}>Resume Analysis</h1>
+            <p style={{ color:C.muted }}>Real keyword, length, contact, and action-verb scoring</p>
+          </div>
+          <Btn onClick={() => go("interview")}>Mock Interview →</Btn>
+        </div>
+
+        {state==="upload" && (
+          <Card>
+            <div style={{ marginBottom:14 }}>
+              <label style={{ fontSize:12, color:C.muted }}>Target role</label>
+              <Select value={role} onChange={e=>setRole(e.target.value)} options={CAREERS.map(c=>c.title)}/>
+            </div>
+            <ErrorText>{error}</ErrorText>
+            <textarea value={text} onChange={e=>setText(e.target.value)} placeholder="Paste your resume text here..."
+              style={{ width:"100%", minHeight:220, background:"#1a2a4a", border:"1px solid #ffffff20", borderRadius:10,
+                padding:"14px", color:C.white, fontSize:14, resize:"vertical", outline:"none", fontFamily:"system-ui", lineHeight:1.6, marginBottom:14 }}/>
+            <Btn onClick={analyze} style={{ width:"100%", padding:"12px" }}>🔍 Analyze Resume</Btn>
+          </Card>
+        )}
+
+        {state==="scanning" && (
+          <Card style={{ textAlign:"center", padding:"70px 40px" }}>
+            <div style={{ fontSize:52, marginBottom:16 }}>🔍</div>
+            <h3 style={{ margin:"0 0 14px", fontSize:20 }}>Analyzing your resume...</h3>
+            {["Checking keyword coverage","Scanning contact info","Checking word count","Counting action verbs","Generating report"].map((s,i) => (
+              <p key={s} style={{ color:C.cyan, margin:"7px 0", fontSize:13, animation:`pulse 1.5s ease ${i*0.22}s infinite` }}>⚡ {s}</p>
+            ))}
+          </Card>
+        )}
+
+        {state==="result" && result && (
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+            <Card style={{ textAlign:"center" }}>
+              <h3 style={{ margin:"0 0 20px", color:C.purple, fontSize:15, fontWeight:700 }}>🎯 ATS Compatibility Score</h3>
+              <div style={{ display:"flex", justifyContent:"center", marginBottom:12 }}>
+                <CircleScore value={result.ats_score} label={`For ${role}`} color={result.ats_score>=70?C.green:result.ats_score>=45?C.orange:C.red} size={120}/>
+              </div>
+              <p style={{ color:C.muted, fontSize:12, marginBottom:16 }}>
+                {result.ats_score>=70 ? "Strong match — most ATS systems will pass this." : result.ats_score>=45 ? "Borderline — some fixes needed." : "Below 45% — significant gaps for this role."}
+              </p>
+              <ProgressBar label="Keywords covered" value={0} sub={`${result.covered_keywords.length}/${result.covered_keywords.length+result.missing_keywords.length}`} color={C.orange}/>
+              <ProgressBar label="Word count" value={0} sub={`${result.word_count} words`} color={C.gold}/>
+            </Card>
+            <Card>
+              <h3 style={{ margin:"0 0 16px", color:C.red, fontSize:15, fontWeight:700 }}>⚠️ Suggestions</h3>
+              {result.suggestions.map((s,i) => (
+                <div key={i} style={{ padding:"10px 12px", borderRadius:10, background:"#1a2a4a", marginBottom:8 }}>
+                  <p style={{ margin:0, fontSize:12, color:C.light, lineHeight:1.6 }}>{s}</p>
+                </div>
+              ))}
+              {result.missing_keywords.length > 0 && (
+                <div style={{ marginTop:10 }}>
+                  <span style={{ fontSize:11, color:C.red, fontWeight:700 }}>Missing: </span>
+                  {result.missing_keywords.map(k => <span key={k} style={{ fontSize:11, background:C.red+"20", color:C.red, padding:"3px 9px", borderRadius:10, marginRight:6 }}>{k}</span>)}
+                </div>
+              )}
+            </Card>
+            <div style={{ gridColumn:"1/-1", display:"flex", gap:12, justifyContent:"center" }}>
+              <Btn onClick={() => { setState("upload"); }} outline>🔄 Try Another Version</Btn>
+              <Btn onClick={() => go("interview")} style={{ padding:"12px 32px" }}>🎤 Start Mock Interview →</Btn>
+              <Btn onClick={() => go("dashboard")} outline>📊 Dashboard</Btn>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   SCREEN — MOCK INTERVIEW (dynamic role, heuristic feedback)
+   ════════════════════════════════════════════════════════════════════════ */
+function InterviewScreen({ go, user, onSaveInterviewScore }) {
+  const recs = user && user.riasec_scores ? recommendCareers(user.riasec_scores, user.skills, 1) : [];
+  const targetRole = recs.length ? recs[0].career_title : CAREERS[0].title;
+  const [qIdx, setQIdx] = useState(0);
+  const [answer, setAnswer] = useState("");
+  const [feedback, setFeedback] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [scores, setScores] = useState([]);
+
+  const qs = [
+    `Tell me about yourself and why you want to be a ${targetRole}.`,
+    `How would you approach your first 90 days as a ${targetRole}?`,
+    "Describe a time you solved a difficult problem creatively.",
+    "Where do you see yourself in 5 years in this field?",
+    "What's your process when you receive critical feedback on your work?",
+  ];
+
+  const getAI = async () => {
+    if (!answer.trim()) return;
+    setLoading(true); setFeedback("");
+    await new Promise(r => setTimeout(r, 900));
+    const { score, feedback: fb } = scoreInterviewAnswer(answer, targetRole);
+    setScores(p => [...p, score]);
+    await streamText(fb, setFeedback, 14);
+    setLoading(false);
+  };
+
+  const next = () => {
+    if (qIdx < qs.length-1) { setQIdx(i=>i+1); setAnswer(""); setFeedback(""); }
+    else {
+      const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : null;
+      if(avg) onSaveInterviewScore(avg);
+      go("dashboard");
+    }
+  };
+
+  const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : null;
+
+  return (
+    <div style={{ minHeight:"100vh", background:C.navy, color:C.white, padding:"24px 20px 120px" }} className="animate-fade">
+      <div style={{ maxWidth:780, margin:"0 auto" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:24, flexWrap:"wrap", gap:12 }}>
+          <div>
+            <Badge color={C.orange}>Mock Interview AI</Badge>
+            <h1 style={{ margin:"10px 0 4px", fontSize:26, fontWeight:800 }}>Mock Interview Session</h1>
+            <p style={{ color:C.muted }}>Question {qIdx+1} of {qs.length} · {targetRole} Role</p>
+          </div>
+          <Btn onClick={() => go("dashboard")} outline>Dashboard</Btn>
+        </div>
+
+        <div style={{ display:"flex", gap:6, marginBottom:20 }}>
+          {qs.map((_,i) => (
+            <div key={i} style={{ flex:1, height:5, borderRadius:4,
+              background:i<qIdx?C.green:i===qIdx?C.cyan:"#1a2a4a", transition:"background .3s" }}/>
+          ))}
+        </div>
+
+        <Card style={{ marginBottom:16, background:"#0a2040", border:`1px solid ${C.cyan}30` }}>
+          <div style={{ display:"flex", gap:14, alignItems:"flex-start" }}>
+            <div style={{ width:48, height:48, borderRadius:"50%", background:C.cyan+"20",
+              border:`2px solid ${C.cyan}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:24, flexShrink:0 }}>🤖</div>
+            <div>
+              <div style={{ fontSize:10, color:C.cyan, fontWeight:700, letterSpacing:1.5, marginBottom:8 }}>AI INTERVIEWER · CAREER360</div>
+              <p style={{ margin:0, color:C.white, fontSize:16, lineHeight:1.8 }}>{qs[qIdx]}</p>
+            </div>
+          </div>
+        </Card>
+
+        <Card style={{ marginBottom:14 }}>
+          <div style={{ fontSize:10, color:C.muted, fontWeight:700, letterSpacing:1.5, marginBottom:10 }}>YOUR ANSWER</div>
+          <textarea value={answer} onChange={e => setAnswer(e.target.value)}
+            placeholder="Type your answer here... (Tip: Use STAR method — Situation, Task, Action, Result)"
+            style={{ width:"100%", minHeight:130, background:"#1a2a4a", border:"1px solid #ffffff20", borderRadius:10,
+              padding:"12px 14px", color:C.white, fontSize:14, resize:"vertical", outline:"none",
+              fontFamily:"system-ui, sans-serif", lineHeight:1.7 }}/>
+          <div style={{ display:"flex", gap:10, marginTop:12 }}>
+            <Btn onClick={getAI} style={{ flex:2 }} color={C.orange} disabled={loading || !answer.trim()}>
+              {loading ? "⏳ Analyzing your answer..." : "🤖 Get AI Feedback"}
+            </Btn>
+            {feedback && <Btn onClick={next} outline>{qIdx < qs.length-1 ? "Next Question →" : "🏆 See Results"}</Btn>}
+          </div>
+        </Card>
+
+        {feedback && (
+          <Card style={{ background:"#0D2010", border:`1px solid ${C.green}40` }} className="animate-slide">
+            <div style={{ fontSize:10, color:C.green, fontWeight:700, letterSpacing:1.5, marginBottom:10 }}>💬 AI FEEDBACK</div>
+            <p style={{ margin:0, color:C.light, lineHeight:1.8, fontSize:14 }}>{feedback}<span style={{ opacity:0.4 }}>|</span></p>
+          </Card>
+        )}
+
+        {avg && (
+          <div style={{ marginTop:16, textAlign:"center" }}>
+            <span style={{ color:C.gold, fontWeight:700, fontSize:15 }}>Average Confidence Score: {avg}% </span>
+            <span style={{ color:C.muted, fontSize:13 }}>— Keep going!</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   SCREEN — DASHBOARD (real profile data)
+   ════════════════════════════════════════════════════════════════════════ */
+function DashboardScreen({ go, user, onLogout }) {
+  const hasAssessment = !!user.riasec_scores;
+  const recs = hasAssessment ? recommendCareers(user.riasec_scores, user.skills, 3) : [];
+  const top = recs[0];
+  const skillCoverage = top ? Math.round((top.covered.length/top.core_skills.length)*100) : 0;
+
+  const metrics = [
+    { l:"Career Match", v: top ? Math.round(top.confidence*100) : 0, c:C.cyan, ic:"🎯" },
+    { l:"Skill Coverage", v: skillCoverage, c:C.teal, ic:"📚" },
+    { l:"Resume Score", v: user.resume_score || 0, c:C.purple, ic:"📄" },
+    { l:"Interview Readiness", v: user.interview_score || 0, c:C.orange, ic:"🎤" },
+  ];
+
+  const activities = [
+    { a:"Career DNA Assessment", t: hasAssessment ? "Completed" : "Pending", c: hasAssessment ? C.green : C.muted },
+    { a:"Skill Gap Analysis", t: hasAssessment ? "Available" : "Locked", c: hasAssessment ? C.cyan : C.muted },
+    { a:"AI Roadmap", t: hasAssessment ? "Available" : "Locked", c: hasAssessment ? C.cyan : C.muted },
+    { a:"Resume Analysis", t: user.resume_score ? `Scored ${user.resume_score}` : "Not analyzed", c: user.resume_score ? C.green : C.muted },
+    { a:"Mock Interview", t: user.interview_score ? `Scored ${user.interview_score}%` : "Not attempted", c: user.interview_score ? C.green : C.muted },
+  ];
+
+  const scholarships = [
+    { n:"AICTE Pragati Scholarship", amt:"₹50,000/yr", note:"For diploma/degree women students" },
+    { n:"NSP Post-Matric Scholarship", amt:"₹25,000/yr", note:"Central govt, income-based eligibility" },
+    { n:"Tata Scholarship (Undergraduate)", amt:"₹75,000/yr", note:"Merit + need based" },
+  ];
+
+  return (
+    <div style={{ minHeight:"100vh", background:C.navy, color:C.white }} className="animate-fade">
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+        padding:"14px 28px", borderBottom:"1px solid #ffffff10", position:"sticky", top:0,
+        background:C.navy+"ee", backdropFilter:"blur(12px)", zIndex:100, flexWrap:"wrap", gap:10 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <span style={{ fontSize:20, fontWeight:900 }}>Career<span style={{ color:C.cyan }}>360</span></span>
+          <Badge color={C.gold}>Dashboard</Badge>
+        </div>
+        <div style={{ display:"flex", gap:10 }}>
+          <Btn onClick={() => go("home")} outline style={{ padding:"7px 16px", fontSize:12 }}>← Home</Btn>
+          <Btn onClick={onLogout} outline style={{ padding:"7px 16px", fontSize:12 }} color={C.red}>Logout</Btn>
+        </div>
+      </div>
+
+      <div style={{ padding:"24px 28px 140px", maxWidth:1100, margin:"0 auto" }}>
+        <div style={{ marginBottom:24 }}>
+          <h1 style={{ margin:"0 0 4px", fontSize:24, fontWeight:800 }}>
+            Welcome back, <span style={{ color:C.cyan }}>{user.name}</span> 👋
+          </h1>
+          <p style={{ color:C.muted }}>{user.stream || "Student"} · {user.state || ""} {user.level ? `· ${user.level}` : ""}</p>
+        </div>
+
+        {!hasAssessment && (
+          <Card style={{ marginBottom:20, background:"#0a2040", border:`1px solid ${C.cyan}30`, textAlign:"center", padding:"28px" }}>
+            <p style={{ marginBottom:14 }}>You haven't taken the Career DNA Assessment yet — unlock your real recommendations, gap report, and roadmap.</p>
+            <Btn onClick={()=>go("assessment")}>🧬 Take Assessment Now →</Btn>
+          </Card>
+        )}
+
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:20 }}>
+          {metrics.map(m => (
+            <Card key={m.l} style={{ textAlign:"center", padding:"16px 12px" }}>
+              <div style={{ fontSize:30, marginBottom:4 }}>{m.ic}</div>
+              <div style={{ fontSize:32, fontWeight:900, color:m.c }}>{m.v}%</div>
+              <div style={{ fontSize:11, color:C.muted, marginTop:4 }}>{m.l}</div>
+              <div style={{ background:"#1a2a4a", borderRadius:4, height:4, marginTop:10 }}>
+                <div style={{ width:`${m.v}%`, background:m.c, height:4, borderRadius:4, transition:"width 1.2s ease" }}/>
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        <div style={{ display:"grid", gridTemplateColumns:"1.2fr 1fr", gap:16, marginBottom:16 }}>
+          <Card>
+            <h3 style={{ margin:"0 0 16px", fontSize:15, fontWeight:700, color:C.cyan }}>📋 Career Journey Progress</h3>
+            {activities.map(a => (
+              <div key={a.a} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+                padding:"9px 0", borderBottom:"1px solid #ffffff08" }}>
+                <span style={{ fontSize:13, color:C.light }}>{a.a}</span>
+                <span style={{ fontSize:11, padding:"3px 12px", borderRadius:10, background:a.c+"20", color:a.c, fontWeight:700 }}>{a.t}</span>
+              </div>
+            ))}
+          </Card>
+
+          <Card>
+            <h3 style={{ margin:"0 0 6px", fontSize:15, fontWeight:700, color:C.gold }}>🏆 Sample Scholarships</h3>
+            <p style={{ fontSize:10, color:C.muted, marginBottom:12 }}>Illustrative — connect a live scholarship API in production</p>
+            {scholarships.map(s => (
+              <div key={s.n} style={{ padding:"10px 12px", borderRadius:10, background:"#1a2a4a", marginBottom:10 }}>
+                <div style={{ fontSize:12, fontWeight:700, color:C.white, marginBottom:4 }}>{s.n}</div>
+                <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+                  <span style={{ fontSize:11, color:C.green, fontWeight:700 }}>{s.amt}</span>
+                  <span style={{ fontSize:10, color:C.muted }}>{s.note}</span>
+                </div>
+              </div>
+            ))}
+          </Card>
+        </div>
+
+        {hasAssessment && (
+          <Card style={{ marginBottom:16 }}>
+            <h3 style={{ margin:"0 0 16px", fontSize:15, fontWeight:700, color:C.teal }}>🎯 Your Top Career Matches</h3>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12 }}>
+              {recs.map(r => (
+                <div key={r.career_title} style={{ padding:"12px 14px", borderRadius:12, background:"#1a2a4a" }}>
+                  <div style={{ fontWeight:700, color:C.white, marginBottom:4 }}>{r.career_title}</div>
+                  <div style={{ fontSize:12, color:C.cyan, marginBottom:4 }}>{Math.round(r.confidence*100)}% match</div>
+                  <div style={{ fontSize:11, color:C.muted }}>{r.avg_salary_lpa ? `₹${r.avg_salary_lpa} LPA avg` : "Variable pay"}</div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        <Card style={{ background:C.blue, border:"none" }}>
+          <h3 style={{ margin:"0 0 14px", fontSize:15, fontWeight:700 }}>⚡ Quick Actions</h3>
+          <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+            {[["🧬","Retake DNA Test","assessment"],["🎯","View Matches","results"],["📊","Skill Gaps","gap"],
+              ["🗺️","Roadmap","roadmap"],["📄","Resume Check","resume"],["🎤","Mock Interview","interview"]].map(([ic,l,s]) => (
+              <Btn key={l} onClick={() => go(s)} outline style={{ fontSize:12, padding:"9px 18px" }}>{ic} {l}</Btn>
+            ))}
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   ROOT APP
+   ════════════════════════════════════════════════════════════════════════ */
+function App() {
+  const [screen, setScreen] = useState("home");
+  const [db, setDb] = useState(loadDB());
+  const user = db.currentUserPhone ? db.users[db.currentUserPhone] : null;
+
+  useEffect(() => {
+    if(db.currentUserPhone) setScreen("dashboard");
+  }, []);
+
+  const persist = (newDb) => { setDb({...newDb}); saveDB(newDb); };
+
+  const go = (s) => { setScreen(s); window.scrollTo(0,0); };
+
+  const handleRegister = (form) => {
+    if(db.users[form.phone]) return { error: "This phone number is already registered." };
+    const newDb = {...db, users: {...db.users, [form.phone]: {
+      name: form.name, phone: form.phone, email: form.email, password: form.password, role: form.role,
+      state: form.state, lang: form.lang, level: form.level, stream: form.stream,
+      skills: form.skills, riasec_scores: null, resume_score: null, interview_score: null,
+      created_at: new Date().toISOString(),
+    }}, currentUserPhone: form.phone};
+    persist(newDb);
+    go("assessment");
+  };
+
+  const handleLogin = (identifier, password) => {
+    const found = Object.values(db.users).find(u => u.phone === identifier || u.email === identifier);
+    if(!found || found.password !== password) return { error: "Invalid credentials. Check your phone/email and password." };
+    const newDb = {...db, currentUserPhone: found.phone};
+    persist(newDb);
+    go("dashboard");
+  };
+
+  const handleLogout = () => {
+    const newDb = {...db, currentUserPhone: null};
+    persist(newDb);
+    go("home");
+  };
+
+  const updateCurrentUser = (patch) => {
+    if(!db.currentUserPhone) return;
+    const newDb = {...db, users: {...db.users, [db.currentUserPhone]: {...db.users[db.currentUserPhone], ...patch}}};
+    persist(newDb);
+  };
+
+  const handleSubmitAssessment = (responses) => {
+    const scores = computeRiasecScores(responses);
+    updateCurrentUser({ riasec_scores: scores });
+  };
+
+  const screens = {
+    home: <HomeScreen go={go} user={user}/>,
+    register: <RegisterScreen go={go} onRegister={handleRegister}/>,
+    login: <LoginScreen go={go} onLogin={handleLogin}/>,
+    assessment: user ? <AssessmentScreen go={go} user={user} onSubmitAssessment={handleSubmitAssessment}/> : <LoginScreen go={go} onLogin={handleLogin}/>,
+    analyzing: <AnalyzingScreen go={go} user={user}/>,
+    results: user ? <ResultsScreen go={go} user={user}/> : <LoginScreen go={go} onLogin={handleLogin}/>,
+    gap: user ? <GapScreen go={go} user={user}/> : <LoginScreen go={go} onLogin={handleLogin}/>,
+    roadmap: user ? <RoadmapScreen go={go} user={user}/> : <LoginScreen go={go} onLogin={handleLogin}/>,
+    resume: user ? <ResumeScreen go={go} user={user} onSaveResumeScore={(s)=>updateCurrentUser({resume_score:s})}/> : <LoginScreen go={go} onLogin={handleLogin}/>,
+    interview: user ? <InterviewScreen go={go} user={user} onSaveInterviewScore={(s)=>updateCurrentUser({interview_score:s})}/> : <LoginScreen go={go} onLogin={handleLogin}/>,
+    dashboard: user ? <DashboardScreen go={go} user={user} onLogout={handleLogout}/> : <LoginScreen go={go} onLogin={handleLogin}/>,
+  };
+
+  const Screen = screens[screen] || screens.home;
+  const showNav = user && !["home","register","login","assessment","analyzing"].includes(screen);
+
+  return (
+    <div>
+      {Screen}
+      {showNav && <BottomNav screen={screen} go={go}/>}
+      {user && screen !== "home" && <ChatWidget/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
